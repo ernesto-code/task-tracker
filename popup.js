@@ -1,453 +1,388 @@
-const $ = (sel) => document.querySelector(sel);
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // ---------------------------------------------------------
+    // 1. DATA: DEFINICIÓN DE TAREAS (Desde tu tabla)
+    // ---------------------------------------------------------
+    const predefinedTasks = [
+        { id: "listing", name: "Listing", description: "Listado de issues", logTemplate: "# bug listed: \nDescription:" },
+        { id: "issues_reporting", name: "Issues reporting", description: "Reporte de issues, redaccion, etc", logTemplate: "# of bugs reported: \n# of bugs updated: \nDescription:" },
+        { id: "triage", name: "Triage", description: "Triage", logTemplate: "# of bugs triaged: \nDescription:" },
+        { id: "ir_response", name: "IR - Response", description: "Responder issues en IR", logTemplate: "Reply to issues: [qty]" },
+        { id: "deliverable_request", name: "Deliverable reports - Request", description: "Solicitud de reportes de cierre de auditoria", logTemplate: "Reports requested" },
+        { id: "deliverable_review", name: "Deliverable reports - Review", description: "Revision de los reportes de cierre de auditoria", logTemplate: "Reports Review" },
+        { id: "bfv", name: "BFV", description: "Bug Fix verification - Test cases execution", logTemplate: "Cycle ID: \n# of BFVs completed:" },
+        { id: "listing_review", name: "Listing review", description: "Revisar el listing - Normalmente cuando no esta hecho por nosotros", logTemplate: "Listed issues reviewed:" },
+        { id: "reported_issues_update", name: "Reported issues update", description: "Screenshots adding, ajuste de redaccion.", logTemplate: "Reported issues updated:" },
+        { id: "reported_issues_review", name: "Reported issues review", description: "Similar al triage pero mas interno. Double checking...", logTemplate: "Reported issues reviewed:" },
+        { id: "videos_recording", name: "Videos recording", description: "Grabacion de videos para issues ya reportados", logTemplate: "Videos recorded:" },
+        { id: "client_questions", name: "Respond to client questions", description: "Respuestas al cliente mayormente con correos o Slack, docs, etc.", logTemplate: "Respond to client questions" },
+        { id: "custom_report", name: "Custom Report (Starbucks)", description: "Reporte de starbucks personalizado de los in-sprints", logTemplate: "Custom reports creation" },
+        { id: "pdf_remediation", name: "PDF Remediation", description: "Fixes para PDF", logTemplate: "Documents / Pages fixed :" },
+        { id: "mentoring", name: "Mentoring", description: "Mentoring de algun miembro del team de cara a UTest", logTemplate: "Time spend mentoring [tester]" },
+        { id: "vpat", name: "VPAT", description: "Creación o revisión de VPAT", logTemplate: "VPAT Creation/Review/Update" }
+    ];
 
-const taskEl = $("#task");
-const startEl = $("#start");
-const endEl   = $("#end");
-const form = $("#task-form");
-const durationPreview = $("#durationPreview");
-const entriesEl = $("#entries");
-const totalMinutesEl = $("#totalMinutes");
-const totalPrettyEl = $("#totalPretty");
-const importBtn = $("#importBtn");
-const exportBtn = $("#exportBtn");
-const clearBtn  = $("#clearBtn");
-const importDialog = $("#importDialog");
-const chooseFileBtn = $("#chooseFileBtn");
-const fileInput = $("#fileInput");
-const expandBtn = $("#expandBtn");
-const copyReportBtn = $("#copyReportBtn");
-const clockToggle = $("#clockToggle");
-const startNowBtn = $("#startNowBtn");
-const addBtn = $("#addBtn");
+    // Variable global para guardar la tarea seleccionada actualmente (útil para el paso 2)
+    let currentSelectedTask = null;
 
-let entries = []; // {id, task, start, end, minutes, isActive, createdAt}
-let clockEnabled = true;
-let tickTimer = null;
+    // ---------------------------------------------------------
+    // 2. REFERENCIAS Y LOGICA DEL DROPDOWN
+    // ---------------------------------------------------------
+    const taskInput = document.getElementById('task-input');
+    const suggestionsList = document.getElementById('task-suggestions');
 
-/* ---------- Helpers ---------- */
-const pad = (n) => String(n).padStart(2, "0");
-const nowHHMM = () => {
-  const d = new Date();
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
-function parseTimeToMinutes(t) {
-  const [h, m] = (t || "").split(":").map(Number);
-  if (Number.isNaN(h) || Number.isNaN(m)) return null;
-  return h * 60 + m;
-}
-// --- AM/PM label (mantiene HH tal cual en 00-23) ---
-function labelAMPM(hhmm){
-  if(!hhmm) return "";
-  const [hStr, mStr] = hhmm.split(":");
-  const h = parseInt(hStr, 10);
-  const mer = (h >= 0 && h < 12) ? "AM" : "PM";
-  return `${hStr}:${mStr}${mer}`;
-}
-function minutesToPretty(mins) { // HH:MM
-  const h = Math.floor(mins / 60);
-  const m = Math.abs(mins % 60);
-  return `${h}:${pad(m)}h`;
-}
-function diffMinutes(startHHMM, endHHMM) {
-  const s = parseTimeToMinutes(startHHMM);
-  const e = parseTimeToMinutes(endHHMM);
-  if (s == null || e == null) return 0;
-  return e >= s ? (e - s) : ((e + 24 * 60) - s);
-}
-function computeMinutes(entry) {
-  const minutesField = Number(entry.minutes);
-  const hasMinutes = !Number.isNaN(minutesField);
+    // Función para renderizar la lista
+    function renderSuggestions(filterText = '') {
+        suggestionsList.innerHTML = ''; // Limpiar lista
+        const lowerFilter = filterText.toLowerCase();
 
-  const base = hasMinutes
-    ? minutesField
-    : ((entry.start && entry.end) ? diffMinutes(entry.start, entry.end) : 0);
+        // Filtrar tareas
+        const filtered = predefinedTasks.filter(task => 
+            task.name.toLowerCase().includes(lowerFilter)
+        );
 
-  if (entry.isActive) {
-    const since = entry.activeSince || entry.start;
-    if (!since) return base;
-    return base + diffMinutes(since, nowHHMM());
-  }
+        if (filtered.length === 0) {
+            suggestionsList.style.display = 'none';
+            return;
+        }
 
-  return base;
-}
+        filtered.forEach(task => {
+            const li = document.createElement('li');
+            li.textContent = task.name;
+            
+            // AQUÍ ESTÁ EL REQUERIMIENTO: Descripción on hover
+            li.setAttribute('title', task.description); 
+            
+            // Al hacer click en una opción
+            li.addEventListener('click', () => {
+                taskInput.value = task.name;
+                currentSelectedTask = task; // Guardamos el objeto completo
+                suggestionsList.style.display = 'none';
+            });
 
-function updatePreview() {
-  if (!startEl.value || !endEl.value) {
-    durationPreview.textContent = `0 min (0:00h)`;
-    return;
-  }
-  const mins = diffMinutes(startEl.value, endEl.value);
-  durationPreview.textContent = `${mins} min (${minutesToPretty(mins)})`;
-}
+            suggestionsList.appendChild(li);
+        });
 
-/* ---------- Storage ---------- */
-function save() { chrome.storage.local.set({ entries, clockEnabled }, () => {}); }
-function load() {
-  chrome.storage.local.get(["entries", "clockEnabled"], (data) => {
-    entries = Array.isArray(data.entries) ? data.entries : [];
-    clockEnabled = data.clockEnabled !== false; // default ON
-    clockToggle.checked = clockEnabled;
-    setClockUI(clockEnabled);
-    renderList();
-    startTick();
-  });
-}
-
-/* ---------- UI ---------- */
-function setClockUI(enabled) {
-  document.documentElement.classList.toggle("no-clock", !enabled);
-}
-
-function renderList() {
-  entriesEl.innerHTML = "";
-  let total = 0;
-
-  entries.forEach((it) => {
-    const mins = computeMinutes(it);
-    total += mins;
-
-    const isPaused =
-      !it.isActive &&
-      !it.end &&
-      !!it.start;
-
-    const li = document.createElement("li");
-    li.className = "entry";
-
-    const row1 = document.createElement("div");
-    row1.className = "row";
-
-    const taskSpan = document.createElement("span");
-    taskSpan.className = "task";
-    taskSpan.textContent = it.task || "(Sin nombre)";
-
-    const metaSpan = document.createElement("span");
-    metaSpan.className = "meta";
-
-    if (it.isActive) {
-      metaSpan.textContent = `(${it.start || "?"} → ahora)`;
-    } else if (isPaused) {
-      metaSpan.textContent = `(${it.start || "?"} → pausa)`;
-    } else {
-      metaSpan.textContent = `(${it.start || ""}${it.end ? " → " + it.end : ""})`;
+        suggestionsList.style.display = 'block';
     }
 
-    const right = document.createElement("div");
-    right.className = "right";
+    // Evento: Al escribir en el input
+    taskInput.addEventListener('input', (e) => {
+        renderSuggestions(e.target.value);
+        // Si el usuario edita el texto manualmente, reseteamos la selección "oficial"
+        // hasta que coincida con algo o termine de escribir
+        currentSelectedTask = predefinedTasks.find(t => t.name === e.target.value) || null;
+    });
 
-    const stateChip = document.createElement("span");
-    stateChip.className = "pill " + (it.isActive ? "active" : (isPaused ? "paused" : ""));
-    stateChip.textContent = it.isActive
-      ? "En progreso"
-      : (isPaused ? "Pausada" : "Cerrada");
+    // Evento: Al hacer focus (clic dentro) mostrar todas las opciones
+    taskInput.addEventListener('focus', () => {
+        renderSuggestions(taskInput.value);
+    });
 
-    const minutesChip = document.createElement("span");
-    minutesChip.className = "pill";
-    minutesChip.textContent = `${mins} min`;
+    // Evento: Clic fuera para cerrar la lista
+    document.addEventListener('click', (e) => {
+        if (!taskInput.contains(e.target) && !suggestionsList.contains(e.target)) {
+            suggestionsList.style.display = 'none';
+        }
+    });
 
-    const prettySmall = document.createElement("span");
-    prettySmall.className = "mini";
-    prettySmall.textContent = ` (${minutesToPretty(mins)})`;
+    // ... AQUI SIGUE EL RESTO DE TU CÓDIGO (Tabs, Agregar tarea, etc) ...
+    // ... Asegúrate de que las referencias anteriores (addBtn, cycleInput, etc) no se dupliquen ...
+    
+    // --- 1. LÓGICA DE TABS ---
+    const tabs = document.querySelectorAll('.tab');
+    const contents = document.querySelectorAll('.tab-content');
 
-    right.append(stateChip, minutesChip, prettySmall);
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Desactivar todo
+            tabs.forEach(t => t.classList.remove('active'));
+            contents.forEach(c => c.classList.remove('active'));
 
-    if (it.isActive || isPaused) {
-      const pauseBtn = document.createElement("button");
-      pauseBtn.type = "button";
-      pauseBtn.textContent = it.isActive ? "Pausar" : "Reanudar";
+            // Activar el seleccionado
+            tab.classList.add('active');
+            const targetId = tab.getAttribute('data-target');
+            document.getElementById(targetId).classList.add('active');
+        });
+    });
 
-      pauseBtn.addEventListener("click", () => {
-        const base = Number(it.minutes) || 0;
+    // --- 2. REFERENCIAS ---
+    const addBtn = document.getElementById('add-task-btn');
+    //const taskInput = document.getElementById('task-input');
+    const cycleInput = document.getElementById('cycle-input');
+    const taskList = document.getElementById('task-list');
+    const emptyState = document.getElementById('empty-state');
+    const successMsg = document.getElementById('success-msg');
 
-        if (it.isActive) {
-          const now = nowHHMM();
-          const since = it.activeSince || it.start;
-          if (since) {
-            it.minutes = base + diffMinutes(since, now);
-          } else {
-            it.minutes = base;
-          }
-          it.isActive = false;
-          it.activeSince = null;
+    // Verificar estado inicial de la lista vacía
+    checkEmptyState();
+
+    // --- 3. FUNCIÓN AGREGAR TAREA ---
+    function handleAddTask() {
+        const taskText = taskInput.value.trim();
+        const cycleText = cycleInput.value.trim() || "General";
+
+        if (taskText !== "") {
+            createTaskElement(taskText, cycleText);
+            
+            taskInput.value = "";
+            taskInput.focus();
+
+            // Mostrar feedback visual
+            successMsg.style.display = 'block';
+            setTimeout(() => { successMsg.style.display = 'none'; }, 2500);
+
+            checkEmptyState();
+        }
+    }
+
+  // --- 4. CREAR ELEMENTO VISUAL (CON RELOJ) ---
+    function createTaskElement(text, cycle) {
+        const li = document.createElement('li');
+        li.className = 'task-item';
+
+        let seconds = 0;
+        let timerInterval = null;
+
+        // AQUÍ ES DONDE SE CREA EL RELOJ EN EL HTML
+        li.innerHTML = `
+            <div class="task-info">
+                <span class="task-cycle">${cycle}</span>
+                <span class="task-text">${text}</span>
+                <div class="task-timer">00:00:00</div>
+            </div>
+            <div class="task-actions">
+                <button class="btn-action btn-play" title="Iniciar">▶</button>
+                <button class="btn-action btn-check" title="Completar">✔</button>
+                <button class="btn-action btn-delete" title="Borrar">🗑</button>
+            </div>
+        `;
+
+        const timerDisplay = li.querySelector('.task-timer');
+        const playBtn = li.querySelector('.btn-play');
+        const checkBtn = li.querySelector('.btn-check');
+        const deleteBtn = li.querySelector('.btn-delete');
+
+        // Lógica del botón Play
+        playBtn.addEventListener('click', () => {
+            const isActive = playBtn.classList.toggle('active');
+            
+            if (isActive) {
+                playBtn.textContent = "⏸";
+                li.classList.add('running'); // Activa el estilo CSS verde
+                
+                timerInterval = setInterval(() => {
+                    seconds++;
+                    // Actualiza el texto del div .task-timer
+                    timerDisplay.textContent = formatTime(seconds);
+                }, 1000);
+            } else {
+                playBtn.textContent = "▶";
+                li.classList.remove('running');
+                clearInterval(timerInterval);
+            }
+        });
+
+        // Lógica Check
+        checkBtn.addEventListener('click', () => {
+            li.classList.toggle('completed');
+            if (li.classList.contains('completed') && playBtn.classList.contains('active')) {
+                playBtn.click(); // Pausar si se completa
+            }
+        });
+
+        // Lógica Borrar
+        deleteBtn.addEventListener('click', () => {
+            if(confirm("¿Eliminar?")) {
+                if (timerInterval) clearInterval(timerInterval);
+                li.remove();
+                checkEmptyState();
+            }
+        });
+
+        taskList.prepend(li);
+    }
+    
+    // Función auxiliar para formato 00:00:00
+    function formatTime(totalSeconds) {
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const secs = totalSeconds % 60;
+        return [hours, minutes, secs].map(v => v.toString().padStart(2, '0')).join(':');
+    }
+
+    // Función auxiliar para mostrar/ocultar el mensaje de "No hay tareas"
+    function checkEmptyState() {
+        if (taskList.children.length === 0) {
+            emptyState.style.display = 'block';
         } else {
-          it.isActive = true;
-          it.activeSince = nowHHMM();
+            emptyState.style.display = 'none';
         }
-
-        save();
-        renderList();
-      });
-
-      right.append(pauseBtn);
     }
 
-    const closeBtn = document.createElement("button");
-    closeBtn.type = "button";
-    closeBtn.textContent = (it.isActive || isPaused) ? "Cerrar" : "Eliminar";
+    // --- 5. LISTENERS GLOBALES ---
+    if (addBtn) addBtn.addEventListener('click', handleAddTask);
+    if (taskInput) {
+        taskInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleAddTask();
+        });
+    }
+});
 
-    closeBtn.addEventListener("click", () => {
-      const base = Number(it.minutes) || 0;
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // --- 1. LÓGICA DE TABS ---
+    const tabs = document.querySelectorAll('.tab');
+    const contents = document.querySelectorAll('.tab-content');
 
-      if (it.isActive || isPaused) {
-        const now = nowHHMM();
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            contents.forEach(c => c.classList.remove('active'));
+            
+            tab.classList.add('active');
+            const targetId = tab.getAttribute('data-target');
+            document.getElementById(targetId).classList.add('active');
+        });
+    });
 
-        if (it.isActive) {
-          const since = it.activeSince || it.start;
-          if (since) {
-            it.minutes = base + diffMinutes(since, now);
-          } else {
-            it.minutes = base;
-          }
-          it.isActive = false;
-          it.activeSince = null;
+    // --- 2. REFERENCIAS ---
+    const addBtn = document.getElementById('add-task-btn');
+    const taskInput = document.getElementById('task-input');
+    const cycleInput = document.getElementById('cycle-input');
+    const taskList = document.getElementById('task-list');
+    const emptyState = document.getElementById('empty-state');
+    const successMsg = document.getElementById('success-msg');
+
+    checkEmptyState();
+
+
+
+
+
+
+    
+
+    // --- 3. FUNCIÓN AGREGAR TAREA ---
+    function handleAddTask() {
+        const taskText = taskInput.value.trim();
+        const cycleText = cycleInput.value.trim() || "General";
+
+        if (taskText !== "") {
+            createTaskElement(taskText, cycleText);
+            
+            taskInput.value = "";
+            taskInput.focus();
+
+            successMsg.style.display = 'block';
+            setTimeout(() => { successMsg.style.display = 'none'; }, 2000);
+
+            checkEmptyState();
+        }
+    }
+
+    // --- 4. CREAR ELEMENTO VISUAL CON CRONÓMETRO ---
+    function createTaskElement(text, cycle) {
+        const li = document.createElement('li');
+        li.className = 'task-item';
+
+        // Variables locales para ESTA tarea específica
+        let seconds = 0;
+        let timerInterval = null;
+
+        // Estructura HTML: Agregamos el div .task-timer
+        li.innerHTML = `
+            <div class="task-info">
+                <span class="task-cycle">${cycle}</span>
+                <span class="task-text">${text}</span>
+                <div class="task-timer">00:00:00</div>
+            </div>
+            <div class="task-actions">
+                <button class="btn-action btn-play" title="Iniciar/Pausar">▶</button>
+                <button class="btn-action btn-check" title="Completar">✔</button>
+                <button class="btn-action btn-delete" title="Borrar">🗑</button>
+            </div>
+        `;
+
+        // Referencias a elementos dentro de este LI
+        const timerDisplay = li.querySelector('.task-timer');
+        const playBtn = li.querySelector('.btn-play');
+        const checkBtn = li.querySelector('.btn-check');
+        const deleteBtn = li.querySelector('.btn-delete');
+
+        // --- FUNCIONALIDAD BOTÓN PLAY (TIMER) ---
+        playBtn.addEventListener('click', () => {
+            const isActive = playBtn.classList.toggle('active');
+            
+            if (isActive) {
+                // INICIAR
+                playBtn.textContent = "⏸"; // Icono de Pausa
+                li.classList.add('running'); // Efecto visual (CSS)
+                
+                // Iniciar intervalo
+                timerInterval = setInterval(() => {
+                    seconds++;
+                    timerDisplay.textContent = formatTime(seconds);
+                }, 1000);
+                
+            } else {
+                // PAUSAR
+                playBtn.textContent = "▶"; // Icono de Play
+                li.classList.remove('running');
+                
+                // Detener intervalo
+                clearInterval(timerInterval);
+            }
+        });
+
+        // --- BOTÓN CHECK ---
+        checkBtn.addEventListener('click', () => {
+            li.classList.toggle('completed');
+            // Opcional: Pausar el tiempo si se completa
+            if (li.classList.contains('completed') && playBtn.classList.contains('active')) {
+                playBtn.click(); // Simula clic para pausar
+            }
+        });
+
+        // --- BOTÓN DELETE ---
+        deleteBtn.addEventListener('click', () => {
+            if(confirm("¿Eliminar esta tarea?")) {
+                // IMPORTANTE: Limpiar el intervalo para no consumir memoria
+                if (timerInterval) clearInterval(timerInterval);
+                li.remove();
+                checkEmptyState();
+            }
+        });
+
+        taskList.prepend(li);
+    }
+
+    // --- FUNCIÓN AUXILIAR: FORMATO DE TIEMPO (HH:MM:SS) ---
+    function formatTime(totalSeconds) {
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const secs = totalSeconds % 60;
+
+        // Pad Start agrega un '0' al principio si el número es menor a 10
+        return [hours, minutes, secs]
+            .map(v => v.toString().padStart(2, '0'))
+            .join(':');
+    }
+
+    // Función estado vacío
+    function checkEmptyState() {
+        if (taskList.children.length === 0) {
+            emptyState.style.display = 'block';
         } else {
-          it.minutes = base;
+            emptyState.style.display = 'none';
         }
-
-        if (!it.end) {
-          it.end = now;
-        }
-
-        save();
-        renderList();
-      } else {
-        entries = entries.filter(e => e.id !== it.id);
-        save();
-        renderList();
-      }
-    });
-
-    right.append(closeBtn);
-    row1.append(taskSpan, metaSpan, right);
-    li.append(row1);
-    entriesEl.append(li);
-  });
-
-  totalMinutesEl.textContent = `${total} min`;
-  totalPrettyEl.textContent = minutesToPretty(total);
-}
-
-
-function startTick(){
-  if (tickTimer) clearInterval(tickTimer);
-  // actualizar cada 30 s para tareas activas
-  tickTimer = setInterval(() => {
-    // Si hay alguna activa, re-render para refrescar minutos
-    if (entries.some(e => e.isActive)) {
-      renderList();
     }
-  }, 30 * 1000);
-}
 
-/* ---------- Events ---------- */
-startNowBtn.addEventListener("click", () => {
-  const task = taskEl.value.trim();
-  if (!task) { taskEl.focus(); return; }
-
-  const start = nowHHMM();
-  const entry = {
-    id: crypto.randomUUID(),
-    task,
-    start,
-    end: "",
-    minutes: 0,
-    isActive: true,
-    activeSince: start,
-    createdAt: Date.now(),
-  };
-
-  entries.unshift(entry);
-  taskEl.value = "";
-  save();
-  renderList();
-});
-
-form.addEventListener("submit", (e) => {
-  e.preventDefault();
-
-  const task = taskEl.value.trim();
-  const startV = startEl.value;
-  const endV = endEl.value;
-
-  if (!task) { taskEl.focus(); return; }
-
-  if (startV && endV) {
-    const minutes = diffMinutes(startV, endV);
-    entries.unshift({
-      id: crypto.randomUUID(),
-      task,
-      start: startV,
-      end: endV,
-      minutes,
-      isActive: false,
-      createdAt: Date.now(),
-    });
-  } else if (startV && !endV) {
-    const startM = startV;
-    entries.unshift({
-      id: crypto.randomUUID(),
-      task,
-      start: startM,
-      end: "",
-      minutes: 0,
-      isActive: true,
-      activeSince: startM,
-      createdAt: Date.now(),
-    });
-  } else {
-    const start = nowHHMM();
-    entries.unshift({
-      id: crypto.randomUUID(),
-      task,
-      start,
-      end: "",
-      minutes: 0,
-      isActive: true,
-      activeSince: start,
-      createdAt: Date.now(),
-    });
-  }
-
-  save();
-  renderList();
-  form.reset();
-  updatePreview();
-});
-
-clearBtn.addEventListener("click", () => {
-  if (entries.length === 0) return;
-  if (confirm("¿Borrar todos los registros?")) { entries = []; save(); renderList(); }
-});
-
-[startEl, endEl].forEach(el => {
-  el.addEventListener("input", updatePreview);
-  el.addEventListener("change", updatePreview);
-});
-
-clockToggle.addEventListener("change", () => {
-  clockEnabled = clockToggle.checked;
-  setClockUI(clockEnabled);
-  save();
-});
-
-importBtn.addEventListener("click", () => importDialog.showModal());
-$("#closeImport").addEventListener("click", () => importDialog.close());
-chooseFileBtn.addEventListener("click", () => fileInput.click());
-
-fileInput.addEventListener("change", async (e) => {
-  const file = e.target.files?.[0]; if (!file) return;
-  const text = await file.text();
-  const isCSV = file.name.toLowerCase().endsWith(".csv");
-  const newItems = isCSV ? parseCSV(text) : parseTXT(text);
-  if (newItems.length === 0) return alert("No se encontraron filas válidas.");
-  entries = [...newItems, ...entries]; save(); renderList(); importDialog.close(); fileInput.value = "";
-});
-
-exportBtn.addEventListener("click", () => {
-  const header = "tarea,inicio,fin,estado,duracion_minutos,duracion_HH:MM\n";
-  const rows = entries.map(e => {
-    const mins = computeMinutes(e);
-    const estado = e.isActive ? "en_progreso" : "cerrada";
-    return [
-      csvEscape(e.task),
-      e.start || "",
-      e.end || "",
-      estado,
-      mins,
-      minutesToPretty(mins).replace('h','')
-    ].join(",");
-  });
-  const blob = new Blob([header + rows.join("\n")], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `tiempo_tareas_${new Date().toISOString().slice(0,10)}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-});
-
-expandBtn.addEventListener("click", () => {
-  const url = chrome.runtime.getURL("popup.html");
-  window.open(url, "_blank");
-});
-
-copyReportBtn.addEventListener("click", async () => {
-  const totalText = totalPrettyEl.textContent.replace('h','');
-  const text = `Total: ${totalText} horas`;
-  try {
-    await navigator.clipboard.writeText(text);
-    copyReportBtn.textContent = "Copiado ✓";
-    setTimeout(() => copyReportBtn.textContent = "Copiar reporte", 1200);
-  } catch {
-    const ta = document.createElement("textarea");
-    ta.value = text; document.body.appendChild(ta); ta.select();
-    document.execCommand("copy"); ta.remove();
-    copyReportBtn.textContent = "Copiado ✓";
-    setTimeout(() => copyReportBtn.textContent = "Copiar reporte", 1200);
-  }
-});
-
-/* ---------- Import parsers (igual que antes) ---------- */
-function parseCSV(t) {
-  const out = [];
-  const lines = t.split(/\r?\n/).filter(Boolean);
-  for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i].trim();
-    if (!raw) continue;
-    if (i === 0 && /^tarea\s*,\s*inicio/i.test(raw)) continue;
-
-    const cols = splitCSV(raw);
-    if (cols.length < 3) continue;
-    const [task, start, end] = cols.map(c => c.trim());
-    const mins = start && end ? diffMinutes(start, end) : 0;
-    out.push({
-      id: crypto.randomUUID(),
-      task,
-      start: start || "",
-      end: end || "",
-      minutes: mins,
-      isActive: !!(start && !end),
-      createdAt: Date.now()
-    });
-  }
-  return out;
-}
-function parseTXT(t) {
-  const out = [];
-  const lines = t.split(/\r?\n/).filter(Boolean);
-  const re = /^\s*(\d{1,2}):(\d{2})h?\s+(.+?)\s*$/i;
-  for (const raw of lines) {
-    const m = raw.match(re);
-    if (!m) continue;
-    const hh = parseInt(m[1], 10);
-    const mm = parseInt(m[2], 10);
-    const task = m[3].trim();
-    if (Number.isNaN(hh) || Number.isNaN(mm) || !task) continue;
-    const mins = (hh * 60) + mm;
-    out.push({ id: crypto.randomUUID(), task, start: "", end: "", minutes: mins, isActive: false, createdAt: Date.now() });
-  }
-  return out;
-}
-function splitCSV(line) {
-  const res = []; let cur = "", inQ = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') { if (inQ && line[i + 1] === '"') { cur += '"'; i++; } else { inQ = !inQ; } }
-    else if (ch === ',' && !inQ) { res.push(cur); cur = ""; }
-    else { cur += ch; }
-  }
-  res.push(cur); return res;
-}
-function csvEscape(s) {
-  if (s == null) return "";
-  const needs = /[",\n]/.test(s);
-  return needs ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-/* ---------- Init ---------- */
-document.addEventListener("DOMContentLoaded", () => {
-  load();
-  updatePreview();
+    // Listeners Globales
+    if (addBtn) addBtn.addEventListener('click', handleAddTask);
+    if (taskInput) {
+        taskInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleAddTask();
+        });
+    }
 });
