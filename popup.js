@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     
     // ---------------------------------------------------------
-    // 1. DATA: DEFINICIÓN DE TAREAS (Desde tu tabla)
+    // 1. DATA: DEFINICIÓN DE TAREAS (Predefinidas)
     // ---------------------------------------------------------
     const predefinedTasks = [
         { id: "listing", name: "Listing", description: "Listado de issues", logTemplate: "# bug listed: \nDescription:" },
@@ -11,35 +11,124 @@ document.addEventListener('DOMContentLoaded', function() {
         { id: "deliverable_request", name: "Deliverable reports - Request", description: "Solicitud de reportes de cierre de auditoria", logTemplate: "Reports requested" },
         { id: "deliverable_review", name: "Deliverable reports - Review", description: "Revision de los reportes de cierre de auditoria", logTemplate: "Reports Review" },
         { id: "bfv", name: "BFV", description: "Bug Fix verification - Test cases execution", logTemplate: "Cycle ID: \n# of BFVs completed:" },
-        { id: "listing_review", name: "Listing review", description: "Revisar el listing - Normalmente cuando no esta hecho por nosotros", logTemplate: "Listed issues reviewed:" },
+        { id: "listing_review", name: "Listing review", description: "Revisar el listing", logTemplate: "Listed issues reviewed:" },
         { id: "reported_issues_update", name: "Reported issues update", description: "Screenshots adding, ajuste de redaccion.", logTemplate: "Reported issues updated:" },
-        { id: "reported_issues_review", name: "Reported issues review", description: "Similar al triage pero mas interno. Double checking...", logTemplate: "Reported issues reviewed:" },
-        { id: "videos_recording", name: "Videos recording", description: "Grabacion de videos para issues ya reportados", logTemplate: "Videos recorded:" },
-        { id: "client_questions", name: "Respond to client questions", description: "Respuestas al cliente mayormente con correos o Slack, docs, etc.", logTemplate: "Respond to client questions" },
-        { id: "custom_report", name: "Custom Report (Starbucks)", description: "Reporte de starbucks personalizado de los in-sprints", logTemplate: "Custom reports creation" },
+        { id: "reported_issues_review", name: "Reported issues review", description: "Double checking issues...", logTemplate: "Reported issues reviewed:" },
+        { id: "videos_recording", name: "Videos recording", description: "Grabacion de videos", logTemplate: "Videos recorded:" },
+        { id: "client_questions", name: "Respond to client questions", description: "Respuestas al cliente", logTemplate: "Respond to client questions" },
+        { id: "custom_report", name: "Custom Report (Starbucks)", description: "Reporte de starbucks", logTemplate: "Custom reports creation" },
         { id: "pdf_remediation", name: "PDF Remediation", description: "Fixes para PDF", logTemplate: "Documents / Pages fixed :" },
-        { id: "mentoring", name: "Mentoring", description: "Mentoring de algun miembro del team de cara a UTest", logTemplate: "Time spend mentoring [tester]" },
+        { id: "mentoring", name: "Mentoring", description: "Mentoring de algun miembro", logTemplate: "Time spend mentoring [tester]" },
         { id: "vpat", name: "VPAT", description: "Creación o revisión de VPAT", logTemplate: "VPAT Creation/Review/Update" }
     ];
 
-    // Variable global para guardar la tarea seleccionada actualmente (útil para el paso 2)
     let currentSelectedTask = null;
 
     // ---------------------------------------------------------
-    // 2. REFERENCIAS Y LOGICA DEL DROPDOWN
+    // 2. REFERENCIAS Y TABS (¡LÓGICA ACTUALIZADA!)
     // ---------------------------------------------------------
     const taskInput = document.getElementById('task-input');
+    const cycleInput = document.getElementById('cycle-input');
     const suggestionsList = document.getElementById('task-suggestions');
+    const addBtn = document.getElementById('add-task-btn');
+    const taskList = document.getElementById('task-list');
+    const emptyState = document.getElementById('empty-state');
+    const successMsg = document.getElementById('success-msg');
 
-    // Función para renderizar la lista
+    // Referencias a tabs y contenidos
+    const tabs = document.querySelectorAll('.tab');
+    const contents = document.querySelectorAll('.tab-content');
+
+    // A) RECUPERAR TAB GUARDADO
+    // Verificamos si hay un tab guardado en memoria
+    const savedTabId = localStorage.getItem('lastActiveTab');
+    
+    if (savedTabId) {
+        // Si existe, desactivamos los defaults del HTML
+        tabs.forEach(t => t.classList.remove('active'));
+        contents.forEach(c => c.classList.remove('active'));
+        
+        // Buscamos el botón y el contenido que coincidan con lo guardado
+        const tabToActivate = document.querySelector(`.tab[data-target="${savedTabId}"]`);
+        const contentToActivate = document.getElementById(savedTabId);
+
+        // Si existen, los activamos
+        if (tabToActivate && contentToActivate) {
+            tabToActivate.classList.add('active');
+            contentToActivate.classList.add('active');
+        } else {
+            // Fallback por seguridad: activar el primero (Input)
+            tabs[0].classList.add('active');
+            contents[0].classList.add('active');
+        }
+    }
+
+    // B) EVENTO DE CAMBIO DE TAB
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Limpiar activos anteriores
+            tabs.forEach(t => t.classList.remove('active'));
+            contents.forEach(c => c.classList.remove('active'));
+            
+            // Activar nuevo
+            tab.classList.add('active');
+            const targetId = tab.getAttribute('data-target');
+            document.getElementById(targetId).classList.add('active');
+
+            // --- NUEVO: GUARDAR SELECCIÓN EN MEMORIA ---
+            localStorage.setItem('lastActiveTab', targetId);
+        });
+    });
+
+    // ---------------------------------------------------------
+    // 3. STORAGE: CARGAR Y GUARDAR TAREAS
+    // ---------------------------------------------------------
+
+    // Cargar tareas al iniciar
+    loadTasksFromStorage();
+
+    function saveTasksToStorage() {
+        const tasksData = [];
+        const listItems = taskList.querySelectorAll('.task-item');
+        
+        listItems.forEach(li => {
+            if (li.taskData) {
+                if (li.taskData.isRunning) {
+                    const now = Date.now();
+                    // Solo actualizamos el acumulado temporalmente para guardar el estado correcto
+                    // La lógica real de tiempo la maneja el startVisualTimer al recargar
+                }
+                
+                const textarea = li.querySelector('.log-textarea');
+                li.taskData.logContent = textarea ? textarea.value : "";
+                
+                tasksData.push(li.taskData);
+            }
+        });
+
+        localStorage.setItem('myTasks', JSON.stringify(tasksData));
+        checkEmptyState();
+    }
+
+    function loadTasksFromStorage() {
+        const storedData = localStorage.getItem('myTasks');
+        if (storedData) {
+            const tasks = JSON.parse(storedData);
+            // Invertimos el orden al cargar porque 'prepend' las invierte de nuevo
+            tasks.reverse().forEach(taskData => {
+                createTaskElementFromData(taskData);
+            });
+        }
+        checkEmptyState();
+    }
+
+    // ---------------------------------------------------------
+    // 4. DROPDOWN (AUTOCOMPLETADO)
+    // ---------------------------------------------------------
     function renderSuggestions(filterText = '') {
-        suggestionsList.innerHTML = ''; // Limpiar lista
+        suggestionsList.innerHTML = '';
         const lowerFilter = filterText.toLowerCase();
-
-        // Filtrar tareas
-        const filtered = predefinedTasks.filter(task => 
-            task.name.toLowerCase().includes(lowerFilter)
-        );
+        const filtered = predefinedTasks.filter(task => task.name.toLowerCase().includes(lowerFilter));
 
         if (filtered.length === 0) {
             suggestionsList.style.display = 'none';
@@ -49,169 +138,203 @@ document.addEventListener('DOMContentLoaded', function() {
         filtered.forEach(task => {
             const li = document.createElement('li');
             li.textContent = task.name;
-            
-            // AQUÍ ESTÁ EL REQUERIMIENTO: Descripción on hover
-            li.setAttribute('title', task.description); 
-            
-            // Al hacer click en una opción
+            li.setAttribute('title', task.description);
             li.addEventListener('click', () => {
                 taskInput.value = task.name;
-                currentSelectedTask = task; // Guardamos el objeto completo
+                currentSelectedTask = task;
                 suggestionsList.style.display = 'none';
             });
-
             suggestionsList.appendChild(li);
         });
-
         suggestionsList.style.display = 'block';
     }
 
-    // Evento: Al escribir en el input
     taskInput.addEventListener('input', (e) => {
         renderSuggestions(e.target.value);
-        // Si el usuario edita el texto manualmente, reseteamos la selección "oficial"
-        // hasta que coincida con algo o termine de escribir
         currentSelectedTask = predefinedTasks.find(t => t.name === e.target.value) || null;
     });
 
-    // Evento: Al hacer focus (clic dentro) mostrar todas las opciones
-    taskInput.addEventListener('focus', () => {
-        renderSuggestions(taskInput.value);
-    });
-
-    // Evento: Clic fuera para cerrar la lista
+    taskInput.addEventListener('focus', () => renderSuggestions(taskInput.value));
+    
     document.addEventListener('click', (e) => {
         if (!taskInput.contains(e.target) && !suggestionsList.contains(e.target)) {
             suggestionsList.style.display = 'none';
         }
     });
 
-    // ... AQUI SIGUE EL RESTO DE TU CÓDIGO (Tabs, Agregar tarea, etc) ...
-    // ... Asegúrate de que las referencias anteriores (addBtn, cycleInput, etc) no se dupliquen ...
-    
-    // --- 1. LÓGICA DE TABS ---
-    const tabs = document.querySelectorAll('.tab');
-    const contents = document.querySelectorAll('.tab-content');
-
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            // Desactivar todo
-            tabs.forEach(t => t.classList.remove('active'));
-            contents.forEach(c => c.classList.remove('active'));
-
-            // Activar el seleccionado
-            tab.classList.add('active');
-            const targetId = tab.getAttribute('data-target');
-            document.getElementById(targetId).classList.add('active');
-        });
-    });
-
-    // --- 2. REFERENCIAS ---
-    const addBtn = document.getElementById('add-task-btn');
-    //const taskInput = document.getElementById('task-input');
-    const cycleInput = document.getElementById('cycle-input');
-    const taskList = document.getElementById('task-list');
-    const emptyState = document.getElementById('empty-state');
-    const successMsg = document.getElementById('success-msg');
-
-    // Verificar estado inicial de la lista vacía
-    checkEmptyState();
-
-    // --- 3. FUNCIÓN AGREGAR TAREA ---
+    // ---------------------------------------------------------
+    // 5. AGREGAR NUEVA TAREA
+    // ---------------------------------------------------------
     function handleAddTask() {
         const taskText = taskInput.value.trim();
         const cycleText = cycleInput.value.trim() || "General";
 
         if (taskText !== "") {
-            createTaskElement(taskText, cycleText);
+            let templateToUse = "";
+            if (currentSelectedTask && currentSelectedTask.name === taskText) {
+                templateToUse = currentSelectedTask.logTemplate;
+            } else {
+                const found = predefinedTasks.find(t => t.name === taskText);
+                if (found) templateToUse = found.logTemplate;
+            }
+
+            const newTaskData = {
+                id: Date.now(),
+                text: taskText,
+                cycle: cycleText,
+                template: templateToUse,
+                logContent: templateToUse,
+                accumulatedSeconds: 0,
+                lastStartTime: 0,
+                isRunning: false,
+                isCompleted: false
+            };
+
+            createTaskElementFromData(newTaskData);
+            saveTasksToStorage();
             
             taskInput.value = "";
+            currentSelectedTask = null;
             taskInput.focus();
 
-            // Mostrar feedback visual
             successMsg.style.display = 'block';
-            setTimeout(() => { successMsg.style.display = 'none'; }, 2500);
-
-            checkEmptyState();
+            setTimeout(() => { successMsg.style.display = 'none'; }, 2000);
         }
     }
 
-  // --- 4. CREAR ELEMENTO VISUAL (CON RELOJ) ---
-    function createTaskElement(text, cycle) {
+    // ---------------------------------------------------------
+    // 6. CREAR ELEMENTO VISUAL
+    // ---------------------------------------------------------
+    function createTaskElementFromData(data) {
         const li = document.createElement('li');
         li.className = 'task-item';
+        if (data.isCompleted) li.classList.add('completed');
+        if (data.isRunning) li.classList.add('running');
 
-        let seconds = 0;
-        let timerInterval = null;
+        li.taskData = data; 
 
-        // AQUÍ ES DONDE SE CREA EL RELOJ EN EL HTML
+        // Calculamos tiempo inicial
+        let currentTotalSeconds = data.accumulatedSeconds;
+        
+        if (data.isRunning) {
+            const now = Date.now();
+            const diff = Math.floor((now - data.lastStartTime) / 1000);
+            currentTotalSeconds += diff;
+        }
+
+        const initialTimeDisplay = formatTime(currentTotalSeconds);
+        const displayStyle = data.isCompleted ? 'block' : 'none';
+
         li.innerHTML = `
-            <div class="task-info">
-                <span class="task-cycle">${cycle}</span>
-                <span class="task-text">${text}</span>
-                <div class="task-timer">00:00:00</div>
+            <div class="task-header-row">
+                <div class="task-info">
+                    <span class="task-cycle">${data.cycle}</span>
+                    <span class="task-text">${data.text}</span>
+                    <div class="task-timer">${initialTimeDisplay}</div>
+                </div>
+                <div class="task-actions">
+                    <button class="btn-action btn-play" title="Iniciar">${data.isRunning ? '⏸' : '▶'}</button>
+                    <button class="btn-action btn-check" title="Completar">✔</button>
+                    <button class="btn-action btn-delete" title="Borrar">🗑</button>
+                </div>
             </div>
-            <div class="task-actions">
-                <button class="btn-action btn-play" title="Iniciar">▶</button>
-                <button class="btn-action btn-check" title="Completar">✔</button>
-                <button class="btn-action btn-delete" title="Borrar">🗑</button>
+            <div class="task-log-container" style="display: ${displayStyle};">
+                <label class="log-label">Time Log / Reporte:</label>
+                <textarea class="log-textarea" placeholder="Escribe los detalles aquí...">${data.logContent || data.template}</textarea>
             </div>
         `;
 
         const timerDisplay = li.querySelector('.task-timer');
         const playBtn = li.querySelector('.btn-play');
+        if (data.isRunning) playBtn.classList.add('active');
+
         const checkBtn = li.querySelector('.btn-check');
         const deleteBtn = li.querySelector('.btn-delete');
+        const logContainer = li.querySelector('.task-log-container');
+        const textarea = li.querySelector('.log-textarea');
 
-        // Lógica del botón Play
+        let timerInterval = null;
+
+        function startVisualTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                const now = Date.now();
+                const sessionSeconds = Math.floor((now - li.taskData.lastStartTime) / 1000);
+                const total = li.taskData.accumulatedSeconds + sessionSeconds;
+                timerDisplay.textContent = formatTime(total);
+            }, 1000);
+        }
+
+        if (data.isRunning) {
+            startVisualTimer();
+        }
+
         playBtn.addEventListener('click', () => {
-            const isActive = playBtn.classList.toggle('active');
-            
-            if (isActive) {
+            const isRunningNow = !li.taskData.isRunning;
+            li.taskData.isRunning = isRunningNow;
+
+            if (isRunningNow) {
                 playBtn.textContent = "⏸";
-                li.classList.add('running'); // Activa el estilo CSS verde
+                playBtn.classList.add('active');
+                li.classList.add('running');
                 
-                timerInterval = setInterval(() => {
-                    seconds++;
-                    // Actualiza el texto del div .task-timer
-                    timerDisplay.textContent = formatTime(seconds);
-                }, 1000);
+                li.taskData.lastStartTime = Date.now();
+                startVisualTimer();
             } else {
                 playBtn.textContent = "▶";
+                playBtn.classList.remove('active');
                 li.classList.remove('running');
+                
+                const now = Date.now();
+                const sessionSeconds = Math.floor((now - li.taskData.lastStartTime) / 1000);
+                li.taskData.accumulatedSeconds += sessionSeconds;
+                
                 clearInterval(timerInterval);
+                timerDisplay.textContent = formatTime(li.taskData.accumulatedSeconds);
             }
+            saveTasksToStorage();
         });
 
-        // Lógica Check
         checkBtn.addEventListener('click', () => {
             li.classList.toggle('completed');
-            if (li.classList.contains('completed') && playBtn.classList.contains('active')) {
-                playBtn.click(); // Pausar si se completa
+            li.taskData.isCompleted = li.classList.contains('completed');
+
+            if (li.taskData.isCompleted) {
+                if (li.taskData.isRunning) playBtn.click();
+                logContainer.style.display = 'block';
+                setTimeout(() => textarea.focus(), 100);
+            } else {
+                logContainer.style.display = 'none';
             }
+            saveTasksToStorage();
         });
 
-        // Lógica Borrar
+        textarea.addEventListener('input', () => {
+            li.taskData.logContent = textarea.value;
+            saveTasksToStorage();
+        });
+
         deleteBtn.addEventListener('click', () => {
-            if(confirm("¿Eliminar?")) {
+            if(confirm("¿Eliminar esta tarea?")) {
                 if (timerInterval) clearInterval(timerInterval);
                 li.remove();
                 checkEmptyState();
+                saveTasksToStorage();
             }
         });
 
         taskList.prepend(li);
     }
-    
-    // Función auxiliar para formato 00:00:00
+
+    // Helpers
     function formatTime(totalSeconds) {
+        if (totalSeconds < 0) totalSeconds = 0;
         const hours = Math.floor(totalSeconds / 3600);
         const minutes = Math.floor((totalSeconds % 3600) / 60);
         const secs = totalSeconds % 60;
         return [hours, minutes, secs].map(v => v.toString().padStart(2, '0')).join(':');
     }
 
-    // Función auxiliar para mostrar/ocultar el mensaje de "No hay tareas"
     function checkEmptyState() {
         if (taskList.children.length === 0) {
             emptyState.style.display = 'block';
@@ -220,165 +343,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- 5. LISTENERS GLOBALES ---
-    if (addBtn) addBtn.addEventListener('click', handleAddTask);
-    if (taskInput) {
-        taskInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') handleAddTask();
-        });
-    }
-});
-
-document.addEventListener('DOMContentLoaded', function() {
-    
-    // --- 1. LÓGICA DE TABS ---
-    const tabs = document.querySelectorAll('.tab');
-    const contents = document.querySelectorAll('.tab-content');
-
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            tabs.forEach(t => t.classList.remove('active'));
-            contents.forEach(c => c.classList.remove('active'));
-            
-            tab.classList.add('active');
-            const targetId = tab.getAttribute('data-target');
-            document.getElementById(targetId).classList.add('active');
-        });
-    });
-
-    // --- 2. REFERENCIAS ---
-    const addBtn = document.getElementById('add-task-btn');
-    const taskInput = document.getElementById('task-input');
-    const cycleInput = document.getElementById('cycle-input');
-    const taskList = document.getElementById('task-list');
-    const emptyState = document.getElementById('empty-state');
-    const successMsg = document.getElementById('success-msg');
-
-    checkEmptyState();
-
-
-
-
-
-
-    
-
-    // --- 3. FUNCIÓN AGREGAR TAREA ---
-    function handleAddTask() {
-        const taskText = taskInput.value.trim();
-        const cycleText = cycleInput.value.trim() || "General";
-
-        if (taskText !== "") {
-            createTaskElement(taskText, cycleText);
-            
-            taskInput.value = "";
-            taskInput.focus();
-
-            successMsg.style.display = 'block';
-            setTimeout(() => { successMsg.style.display = 'none'; }, 2000);
-
-            checkEmptyState();
-        }
-    }
-
-    // --- 4. CREAR ELEMENTO VISUAL CON CRONÓMETRO ---
-    function createTaskElement(text, cycle) {
-        const li = document.createElement('li');
-        li.className = 'task-item';
-
-        // Variables locales para ESTA tarea específica
-        let seconds = 0;
-        let timerInterval = null;
-
-        // Estructura HTML: Agregamos el div .task-timer
-        li.innerHTML = `
-            <div class="task-info">
-                <span class="task-cycle">${cycle}</span>
-                <span class="task-text">${text}</span>
-                <div class="task-timer">00:00:00</div>
-            </div>
-            <div class="task-actions">
-                <button class="btn-action btn-play" title="Iniciar/Pausar">▶</button>
-                <button class="btn-action btn-check" title="Completar">✔</button>
-                <button class="btn-action btn-delete" title="Borrar">🗑</button>
-            </div>
-        `;
-
-        // Referencias a elementos dentro de este LI
-        const timerDisplay = li.querySelector('.task-timer');
-        const playBtn = li.querySelector('.btn-play');
-        const checkBtn = li.querySelector('.btn-check');
-        const deleteBtn = li.querySelector('.btn-delete');
-
-        // --- FUNCIONALIDAD BOTÓN PLAY (TIMER) ---
-        playBtn.addEventListener('click', () => {
-            const isActive = playBtn.classList.toggle('active');
-            
-            if (isActive) {
-                // INICIAR
-                playBtn.textContent = "⏸"; // Icono de Pausa
-                li.classList.add('running'); // Efecto visual (CSS)
-                
-                // Iniciar intervalo
-                timerInterval = setInterval(() => {
-                    seconds++;
-                    timerDisplay.textContent = formatTime(seconds);
-                }, 1000);
-                
-            } else {
-                // PAUSAR
-                playBtn.textContent = "▶"; // Icono de Play
-                li.classList.remove('running');
-                
-                // Detener intervalo
-                clearInterval(timerInterval);
-            }
-        });
-
-        // --- BOTÓN CHECK ---
-        checkBtn.addEventListener('click', () => {
-            li.classList.toggle('completed');
-            // Opcional: Pausar el tiempo si se completa
-            if (li.classList.contains('completed') && playBtn.classList.contains('active')) {
-                playBtn.click(); // Simula clic para pausar
-            }
-        });
-
-        // --- BOTÓN DELETE ---
-        deleteBtn.addEventListener('click', () => {
-            if(confirm("¿Eliminar esta tarea?")) {
-                // IMPORTANTE: Limpiar el intervalo para no consumir memoria
-                if (timerInterval) clearInterval(timerInterval);
-                li.remove();
-                checkEmptyState();
-            }
-        });
-
-        taskList.prepend(li);
-    }
-
-    // --- FUNCIÓN AUXILIAR: FORMATO DE TIEMPO (HH:MM:SS) ---
-    function formatTime(totalSeconds) {
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const secs = totalSeconds % 60;
-
-        // Pad Start agrega un '0' al principio si el número es menor a 10
-        return [hours, minutes, secs]
-            .map(v => v.toString().padStart(2, '0'))
-            .join(':');
-    }
-
-    // Función estado vacío
-    function checkEmptyState() {
-        if (taskList.children.length === 0) {
-            emptyState.style.display = 'block';
-        } else {
-            emptyState.style.display = 'none';
-        }
-    }
-
-    // Listeners Globales
     if (addBtn) addBtn.addEventListener('click', handleAddTask);
     if (taskInput) {
         taskInput.addEventListener('keypress', (e) => {
