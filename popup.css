@@ -353,3 +353,150 @@ input::placeholder {
     background: #475569; 
     border-radius: 3px;
 }
+
+/* --- TARJETA VERTICAL (Estilo Card) --- */
+.task-item {
+    background-color: #1e293b;
+    border: 1px solid #334155;
+    padding: 16px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column; /* <--- ESTA ES LA CLAVE: Elementos uno debajo del otro */
+    gap: 12px; /* Espacio entre el texto y los controles */
+}
+
+/* Fila superior: Solo Texto e Info */
+.task-header-row {
+    display: flex;
+    flex-direction: column; /* Texto del ciclo arriba, Tarea abajo */
+    width: 100%;
+}
+
+.task-info {
+    display: flex;
+    flex-direction: column;
+    width: 100%; /* Asegura que ocupe todo el ancho */
+}
+
+.task-cycle {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 4px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.task-text {
+    font-size: 1.1rem; /* Texto más grande y legible */
+    color: white;
+    word-wrap: break-word;
+    line-height: 1.4;
+}
+
+/* Fila inferior: Timer a la izquierda, Botones a la derecha */
+.task-controls-bottom {
+    display: flex;
+    justify-content: space-between; /* Separa timer de botones */
+    align-items: center;
+    width: 100%;
+    padding-top: 8px;
+    border-top: 1px solid #334155; /* Línea sutil de separación */
+}
+
+/* Ajuste del Timer para que se vea bien abajo */
+.task-timer {
+    font-family: 'Courier New', monospace;
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #cbd5e1;
+    background-color: #0f172a;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+/* Mantener el resto igual (botones, etc.) */
+
+/* --- TIME LOG / REPORTE INTEGRADO --- */
+
+/* 1. EL CONTENEDOR (La caja oscura de abajo) */
+.task-log-container {
+    width: 100%;
+    display: none; /* Oculto hasta que das Check */
+    
+    /* MAGIA PARA ANCHO TOTAL: */
+    /* Como la tarjeta tiene padding de 16px, los márgenes negativos lo anulan */
+    margin-top: 12px;     
+    margin-left: -16px;   
+    margin-right: -16px;
+    margin-bottom: -16px; 
+    
+    /* ESTILO VISUAL: */
+    background-color: #0f172a; /* Un tono más oscuro para que parezca consola */
+    border-top: 1px solid #334155; /* Línea fina arriba para separar */
+    padding: 16px; /* Relleno interno para que el texto respire */
+    
+    /* Redondear solo abajo para encajar perfecto en la tarjeta */
+    border-radius: 0 0 10px 10px;
+    
+    animation: slideDown 0.2s ease-out;
+    
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 2. LA ETIQUETA (Título pequeño) */
+.log-label {
+    font-size: 0.7rem;
+    color: #64748b; /* Gris azulado */
+    margin-bottom: 8px;
+    display: block;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* 3. EL ÁREA DE TEXTO (Donde escribes) */
+.log-textarea {
+    width: 100%;
+    min-height: 80px;
+    
+    /* IMPORTANTE: Fondo transparente y sin bordes para integrarse */
+    background-color: transparent; 
+    border: none; 
+    outline: none;
+    
+    color: #cbd5e1; /* Texto claro */
+    font-family: 'Courier New', monospace; /* Fuente tipo código */
+    font-size: 0.9rem;
+    line-height: 1.5;
+    resize: vertical; /* Permite estirarlo si se necesita */
+}
+
+/* Scrollbar personalizada para que se vea elegante */
+.log-textarea::-webkit-scrollbar { width: 6px; }
+.log-textarea::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+
+/* --- ESTILO BOTÓN COPIAR --- */
+.btn-copy:hover {
+    background: #8b5cf6; /* Color Violeta */
+    color: white;
+    border-color: #8b5cf6;
+}
+
+/* Animación visual al copiar */
+.btn-copy.copied {
+    background-color: #8b5cf6;
+    color: white;
+    animation: copiedBounce 0.3s ease;
+}
+
+@keyframes copiedBounce {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}

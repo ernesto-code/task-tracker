@@ -225,24 +225,37 @@ document.addEventListener('DOMContentLoaded', function() {
         const initialTimeDisplay = formatTime(currentTotalSeconds);
         const displayStyle = data.isCompleted ? 'block' : 'none';
 
+        // ... dentro de function createTaskElementFromData(data) ...
+
+        // ESTRUCTURA ACTUALIZADA: Texto arriba, Controles abajo
         li.innerHTML = `
             <div class="task-header-row">
                 <div class="task-info">
                     <span class="task-cycle">${data.cycle}</span>
                     <span class="task-text">${data.text}</span>
-                    <div class="task-timer">${initialTimeDisplay}</div>
                 </div>
+            </div>
+
+            <div class="task-controls-bottom">
+                <div class="task-timer">${initialTimeDisplay}</div>
+                
                 <div class="task-actions">
+                    <button class="btn-action btn-copy" title="Copiar fila para Excel">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </button>
                     <button class="btn-action btn-play" title="Iniciar">${data.isRunning ? '⏸' : '▶'}</button>
                     <button class="btn-action btn-check" title="Completar">✔</button>
                     <button class="btn-action btn-delete" title="Borrar">🗑</button>
                 </div>
             </div>
+
             <div class="task-log-container" style="display: ${displayStyle};">
                 <label class="log-label">Time Log / Reporte:</label>
                 <textarea class="log-textarea" placeholder="Escribe los detalles aquí...">${data.logContent || data.template}</textarea>
             </div>
         `;
+
+        // ... el resto de la función (referencias a botones, listeners) sigue IGUAL ...
 
         const timerDisplay = li.querySelector('.task-timer');
         const playBtn = li.querySelector('.btn-play');
@@ -250,6 +263,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const checkBtn = li.querySelector('.btn-check');
         const deleteBtn = li.querySelector('.btn-delete');
+        const copyBtn = li.querySelector('.btn-copy');
+
         const logContainer = li.querySelector('.task-log-container');
         const textarea = li.querySelector('.log-textarea');
 
@@ -268,6 +283,42 @@ document.addEventListener('DOMContentLoaded', function() {
         if (data.isRunning) {
             startVisualTimer();
         }
+
+        copyBtn.addEventListener('click', () => {
+            const today = new Date().toLocaleDateString();
+            
+            // 1. Calcular el tiempo exacto actual
+            let finalSeconds = li.taskData.accumulatedSeconds;
+            if (li.taskData.isRunning) {
+                 const now = Date.now();
+                 finalSeconds += Math.floor((now - li.taskData.lastStartTime) / 1000);
+            }
+            const timeString = formatTime(finalSeconds);
+
+            // 2. Limpiar descripción
+            const cleanDescription = (li.taskData.logContent || "").replace(/(\r\n|\n|\r)/gm, " | ");
+
+            // 3. Crear el texto con TABULADORES
+            const clipboardText = `${today}\t${li.taskData.cycle}\t${li.taskData.text}\t${timeString}\t${cleanDescription}`;
+
+            // 4. Copiar y cambiar icono visualmente
+            navigator.clipboard.writeText(clipboardText).then(() => {
+                // Guardamos el icono original (SVG de Copiar)
+                const originalIcon = copyBtn.innerHTML;
+                
+                // Ponemos el icono de CHECK (SVG)
+                copyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                
+                // Añadimos clase para color y animación
+                copyBtn.classList.add('copied');
+
+                // Después de 1.5 segundos, restauramos
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalIcon;
+                    copyBtn.classList.remove('copied');
+                }, 1500);
+            });
+        });
 
         playBtn.addEventListener('click', () => {
             const isRunningNow = !li.taskData.isRunning;
