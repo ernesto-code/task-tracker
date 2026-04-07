@@ -34,7 +34,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const taskList = document.getElementById('task-list');
     const emptyState = document.getElementById('empty-state');
     const successMsg = document.getElementById('success-msg');
-
+    const typeInput = document.getElementById('type-input'); // <-- AGREGA ESTA LÍNEA
+    
     // Referencias a tabs y contenidos
     const tabs = document.querySelectorAll('.tab');
     const contents = document.querySelectorAll('.tab-content');
@@ -112,6 +113,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function loadTasksFromStorage() {
         const storedData = localStorage.getItem('myTasks');
+        sortTasksList();
         if (storedData) {
             const tasks = JSON.parse(storedData);
             // Invertimos el orden al cargar porque 'prepend' las invierte de nuevo
@@ -169,6 +171,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const taskText = taskInput.value.trim();
         const cycleText = cycleInput.value.trim() || "General";
 
+            const typeText = typeInput ? typeInput.value : "UTest";
+            console.log("Tipo seleccionado al agregar:", typeText);
+
         if (taskText !== "") {
             let templateToUse = "";
             if (currentSelectedTask && currentSelectedTask.name === taskText) {
@@ -180,6 +185,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const newTaskData = {
                 id: Date.now(),
+                type: typeText, 
                 text: taskText,
                 cycle: cycleText,
                 template: templateToUse,
@@ -187,11 +193,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 accumulatedSeconds: 0,
                 lastStartTime: 0,
                 isRunning: false,
-                isCompleted: false
+                isCompleted: false,
+                lastInteraction: Date.now()
             };
 
             createTaskElementFromData(newTaskData);
             saveTasksToStorage();
+            sortTasksList();
             
             taskInput.value = "";
             currentSelectedTask = null;
@@ -225,14 +233,21 @@ document.addEventListener('DOMContentLoaded', function() {
         const initialTimeDisplay = formatTime(currentTotalSeconds);
         const displayStyle = data.isCompleted ? 'block' : 'none';
 
+        // LÓGICA DE COLORES PARA LA ETIQUETA
+        let badgeClass = "badge-utest";
+        if (data.type === "Company Client") badgeClass = "badge-client";
+        else if (data.type === "A11y Team") badgeClass = "badge-a11y";
+        console.log(data.type)
+
         // ... dentro de function createTaskElementFromData(data) ...
 
         // ESTRUCTURA ACTUALIZADA: Texto arriba, Controles abajo
         li.innerHTML = `
+            <span class="task-badge ${badgeClass}">${data.type}</span>
             <div class="task-header-row">
                 <div class="task-info">
-                    <span class="task-cycle">${data.cycle}</span>
                     <span class="task-text">${data.text}</span>
+                    <span class="task-cycle">${data.cycle}</span>
                 </div>
             </div>
 
@@ -299,7 +314,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const cleanDescription = (li.taskData.logContent || "").replace(/(\r\n|\n|\r)/gm, " | ");
 
             // 3. Crear el texto con TABULADORES
-            const clipboardText = `${today}\t${li.taskData.cycle}\t${li.taskData.text}\t${timeString}\t${cleanDescription}`;
+            // 3. Unir el Tipo de Tarea con el Ciclo
+            const typeValue = li.taskData.type || "UTest"; // Por si hay tareas viejas guardadas sin tipo
+            const combinedCycle = `${typeValue} - ${li.taskData.cycle}`;
+
+            // 4. Crear el texto con TABULADORES
+            // Orden: Fecha | (Tipo - Ciclo) | Tarea | Tiempo | Descripción
+            const clipboardText = `${today}\t${combinedCycle}\t${li.taskData.text}\t${timeString}\t${cleanDescription}`;
 
             // 4. Copiar y cambiar icono visualmente
             navigator.clipboard.writeText(clipboardText).then(() => {
@@ -330,6 +351,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 li.classList.add('running');
                 
                 li.taskData.lastStartTime = Date.now();
+                li.taskData.lastInteraction = Date.now();
                 startVisualTimer();
             } else {
                 playBtn.textContent = "▶";
@@ -344,6 +366,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 timerDisplay.textContent = formatTime(li.taskData.accumulatedSeconds);
             }
             saveTasksToStorage();
+            sortTasksList();
         });
 
         checkBtn.addEventListener('click', () => {
@@ -400,4 +423,22 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.key === 'Enter') handleAddTask();
         });
     }
+// --- NUEVA FUNCIÓN PARA ORDENAR TAREAS ---
+function sortTasksList() {
+    const tasks = Array.from(taskList.children);
+    
+    tasks.sort((a, b) => {
+        // Obtenemos el tiempo de la última vez que se le dio Play
+        const timeA = a.taskData ? a.taskData.lastInteraction : 0;
+        const timeB = b.taskData ? b.taskData.lastInteraction : 0;
+        
+        // Orden descendente: el número más grande (más reciente) va primero
+        return timeB - timeA;
+    });
+
+    // Reinsertar en el DOM para aplicar el orden
+    tasks.forEach(li => taskList.appendChild(li));
+}
+
 });
+
