@@ -17,6 +17,9 @@
         <div class="tabs-container">
             <button class="tab active" data-target="view-input">Input</button>
             <button class="tab" data-target="view-overview">Overview</button>
+            <button id="copy-all-btn" class="btn-copy-tabs" title="Copiar todas las tareas">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            </button>
         </div>
         
         <div class="content-area">
@@ -55,11 +58,19 @@
             </div>
 
             <div id="view-overview" class="tab-content">
-                <ul id="task-list" class="task-list">
-                    </ul>
-                <div id="empty-state">
+                <div class="total-time-banner">
+                    <span class="total-label">TIEMPO TOTAL: </span>
+                    <span id="total-time-display" class="total-value">00:00:00</span>
+
+
+                </div>
+    
+                <div id="empty-state" class="empty-state-box">
                     No hay tareas activas. Agrega una desde la pestaña "Input".
                 </div>
+                <ul id="task-list" class="task-list">
+                    </ul>
+                
             </div>
         </div>
     </div>

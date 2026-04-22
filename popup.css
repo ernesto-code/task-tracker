@@ -292,13 +292,16 @@ input::placeholder {
 
 /* Estado vacío en Overview */
 #empty-state {
+    /* Tu diseño actual (borde punteado, etc) */
+    border: 1px dashed #475569;
+    padding: 20px;
     text-align: center;
     color: #64748b;
-    padding: 40px 20px;
-    font-size: 0.9rem;
-    background-color: #1e293b;
-    border-radius: 10px;
-    border: 2px dashed #334155;
+    border-radius: 8px;
+    margin-top: 15px;
+    
+    /* Por defecto oculto, el JS se encarga de mostrarlo si hace falta */
+    display: none; 
 }
 
 /* --- ESTILOS DEL AUTOCOMPLETADO (DROPDOWN) --- */
@@ -549,3 +552,95 @@ input::placeholder {
 /* Ajuste de márgenes por haber invertido los textos */
 .task-text { margin-bottom: 4px; display: block; }
 .task-cycle { margin-top: 2px; margin-bottom: 0; display: block; }
+
+/* --- ESTILO DEL BANNER DE TIEMPO TOTAL --- */
+.total-time-banner {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 20px;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.total-label {
+    font-size: 0.65rem;
+    color: #94a3b8;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.total-value {
+    font-family: 'Courier New', monospace;
+    font-size: 1.8rem; /* Más grande que los timers individuales */
+    color: #60a5fa;    /* Azul brillante para resaltar */
+    font-weight: 700;
+    text-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+}
+
+/* --- SEPARADOR DE FECHA --- */
+.date-separator {
+    width: 100%;
+    text-align: center;
+    margin: 25px 0 15px 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.date-separator span {
+    background-color: #0b1120; /* Color del fondo del popup */
+    padding: 0 15px;
+    color: #64748b;
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    z-index: 1;
+}
+
+.date-separator::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #1e293b, transparent);
+    z-index: 0;
+}
+/* --- BOTÓN COPIAR TODO --- */
+.tabs {
+    display: flex;
+    align-items: center; /* Asegura que todo esté alineado verticalmente */
+}
+
+.btn-copy-tabs {
+    margin-left: auto; /* MÁGIA: Esto empuja el botón hacia la derecha del todo */
+    background: transparent;
+    color: #94a3b8; /* Gris azulado */
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.btn-copy-tabs:hover {
+    background-color: #8b5cf6; /* Violeta al pasar el mouse */
+    color: white;
+    border-color: #8b5cf6;
+}
+
+.btn-copy-tabs.copied {
+    background-color: #10b981; /* Verde éxito */
+    color: white;
+    border-color: #10b981;
+}

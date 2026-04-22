@@ -35,6 +35,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const emptyState = document.getElementById('empty-state');
     const successMsg = document.getElementById('success-msg');
     const typeInput = document.getElementById('type-input'); // <-- AGREGA ESTA LÍNEA
+    const totalTimeDisplay = document.getElementById('total-time-display');
+    const copyAllBtn = document.getElementById('copy-all-btn'); // <-- AGREGA ESTA LÍNEA
     
     // Referencias a tabs y contenidos
     const tabs = document.querySelectorAll('.tab');
@@ -105,15 +107,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 tasksData.push(li.taskData);
             }
+            
         });
 
         localStorage.setItem('myTasks', JSON.stringify(tasksData));
+        
         checkEmptyState();
+        updateTotalTimeUI();
     }
 
     function loadTasksFromStorage() {
         const storedData = localStorage.getItem('myTasks');
         sortTasksList();
+        updateTotalTimeUI();
         if (storedData) {
             const tasks = JSON.parse(storedData);
             // Invertimos el orden al cargar porque 'prepend' las invierte de nuevo
@@ -122,6 +128,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         checkEmptyState();
+        
     }
 
     // ---------------------------------------------------------
@@ -188,6 +195,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 type: typeText, 
                 text: taskText,
                 cycle: cycleText,
+                date: new Date().toLocaleDateString(), // <-- GUARDA LA FECHA ACTUAL (Ej: "10/02/2026")
                 template: templateToUse,
                 logContent: templateToUse,
                 accumulatedSeconds: 0,
@@ -200,6 +208,7 @@ document.addEventListener('DOMContentLoaded', function() {
             createTaskElementFromData(newTaskData);
             saveTasksToStorage();
             sortTasksList();
+            updateTotalTimeUI();
             
             taskInput.value = "";
             currentSelectedTask = null;
@@ -292,6 +301,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const sessionSeconds = Math.floor((now - li.taskData.lastStartTime) / 1000);
                 const total = li.taskData.accumulatedSeconds + sessionSeconds;
                 timerDisplay.textContent = formatTime(total);
+                updateTotalTimeUI();
             }, 1000);
         }
 
@@ -392,6 +402,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if(confirm("¿Eliminar esta tarea?")) {
                 if (timerInterval) clearInterval(timerInterval);
                 li.remove();
+                updateTotalTimeUI();
                 checkEmptyState();
                 saveTasksToStorage();
             }
@@ -410,8 +421,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function checkEmptyState() {
-        if (taskList.children.length === 0) {
+        if (!emptyState) return; // Por seguridad
+
+        // Contamos específicamente cuántas tareas reales hay
+        const tasksCount = taskList.querySelectorAll('.task-item').length;
+
+        if (tasksCount === 0) {
             emptyState.style.display = 'block';
+            
+            // Si no hay tareas, limpiamos también cualquier separador de fecha huérfano
+            const separators = taskList.querySelectorAll('.date-separator');
+            separators.forEach(sep => sep.remove());
         } else {
             emptyState.style.display = 'none';
         }
@@ -438,7 +458,99 @@ function sortTasksList() {
 
     // Reinsertar en el DOM para aplicar el orden
     tasks.forEach(li => taskList.appendChild(li));
+
+
+
 }
+
+
+
+function updateTotalTimeUI() {
+   // --- FUNCIÓN PARA ACTUALIZAR EL TIEMPO TOTAL ---
+
+        const display = document.getElementById('total-time-display');
+        if (!display) return; // Seguro contra errores si no encuentra el elemento
+
+        let totalSeconds = 0;
+        const listItems = document.querySelectorAll('.task-item');
+        
+        listItems.forEach(li => {
+            if (li.taskData) {
+                // Sumamos el tiempo pausado/guardado
+                totalSeconds += li.taskData.accumulatedSeconds || 0;
+                
+                // Si está corriendo, calculamos la diferencia en vivo
+                if (li.taskData.isRunning) {
+                    const now = Date.now();
+                    const sessionSeconds = Math.floor((now - li.taskData.lastStartTime) / 1000);
+                    totalSeconds += sessionSeconds;
+                }
+            }
+        });
+
+        // Pintamos el resultado
+        display.textContent = formatTime(totalSeconds);
+}
+// --- NUEVO: LÓGICA DE COPIAR TODAS LAS TAREAS ---
+    if (copyAllBtn) {
+        copyAllBtn.addEventListener('click', () => {
+            const listItems = document.querySelectorAll('.task-item');
+            if (listItems.length === 0) return; // Si no hay tareas, no hace nada
+
+            let allTasksText = [];
+
+            // Recorremos cada tarjeta visualmente
+            listItems.forEach(li => {
+                if (li.taskData) {
+                    const taskDate = li.taskData.date || new Date().toLocaleDateString();
+                    
+                    // Tiempo actual exacto
+                    let finalSeconds = li.taskData.accumulatedSeconds || 0;
+                    if (li.taskData.isRunning) {
+                         const now = Date.now();
+                         finalSeconds += Math.floor((now - li.taskData.lastStartTime) / 1000);
+                    }
+                    const timeString = formatTime(finalSeconds);
+
+                    // Limpiar descripción
+                    const cleanDescription = (li.taskData.logContent || "").replace(/(\r\n|\n|\r)/gm, " | ");
+
+                    // Combinar Tipo y Ciclo
+                    const typeValue = li.taskData.type || "UTest";
+                    const combinedCycle = `${typeValue} - ${li.taskData.cycle}`;
+
+                    // Fila: Fecha | (Tipo - Ciclo) | Tarea | Duración | Descripción
+                    const rowText = `${taskDate}\t${combinedCycle}\t${li.taskData.text}\t${timeString}\t${cleanDescription}`;
+                    
+                    allTasksText.push(rowText);
+                }
+            });
+
+            // Unimos todas las tareas con un salto de línea (\n)
+            const finalClipboardText = allTasksText.join('\n');
+
+            // Escribimos al portapapeles
+            navigator.clipboard.writeText(finalClipboardText).then(() => {
+                const originalHTML = copyAllBtn.innerHTML;
+                
+                // Feedback visual de éxito
+                copyAllBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    ¡Todas las tareas copiadas!
+                `;
+                copyAllBtn.classList.add('copied');
+                
+                // Restauramos el botón después de 2 segundos
+                setTimeout(() => {
+                    copyAllBtn.innerHTML = originalHTML;
+                    copyAllBtn.classList.remove('copied');
+                }, 2000);
+            });
+        });
+    }
+    
+
+updateTotalTimeUI();
 
 });
 
