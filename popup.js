@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const typeInput = document.getElementById('type-input'); // <-- AGREGA ESTA LÍNEA
     const totalTimeDisplay = document.getElementById('total-time-display');
     const copyAllBtn = document.getElementById('copy-all-btn'); // <-- AGREGA ESTA LÍNEA
+    const deleteAllBtn = document.getElementById('delete-all-btn'); // <-- AGREGA ESTA LÍNEA
     
     // Referencias a tabs y contenidos
     const tabs = document.querySelectorAll('.tab');
@@ -549,6 +550,32 @@ function updateTotalTimeUI() {
         });
     }
     
+if (deleteAllBtn) {
+        deleteAllBtn.addEventListener('click', () => {
+            const list = document.getElementById('task-list');
+            const tasksCount = list ? list.querySelectorAll('.task-item').length : 0;
+            
+            if (tasksCount === 0) {
+                alert("La lista ya está vacía.");
+                return;
+            }
+
+            // Mensaje de confirmación nativo del navegador
+            const confirmacion = confirm("⚠️ ¿Estás seguro de que deseas ELIMINAR TODAS las tareas?\n\nEsta acción no se puede deshacer.");
+
+            if (confirmacion) {
+                // 1. Limpiamos la memoria (dejamos el array vacío)
+                localStorage.setItem('myTasks', JSON.stringify([]));
+                
+                // 2. Limpiamos la vista HTML de golpe
+                if (list) list.innerHTML = '';
+                
+                // 3. Actualizamos los contadores visuales (el tiempo volverá a 00:00:00 y aparecerá el cartel de vacío)
+                updateTotalTimeUI();
+                checkEmptyState();
+            }
+        });
+    }
 
 updateTotalTimeUI();
 
