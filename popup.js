@@ -249,10 +249,17 @@ document.addEventListener('DOMContentLoaded', function() {
         else if (data.type === "A11y Team") badgeClass = "badge-a11y";
         console.log(data.type)
 
+    
+
+
+
         // ... dentro de function createTaskElementFromData(data) ...
 
         // ESTRUCTURA ACTUALIZADA: Texto arriba, Controles abajo
         li.innerHTML = `
+            <div class="drag-handle" title="Arrastrar para ordenar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
+            </div>
             <span class="task-badge ${badgeClass}">${data.type}</span>
             <div class="task-header-row">
                 <div class="task-info">
@@ -262,8 +269,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
 
             <div class="task-controls-bottom">
-                <div class="task-timer">${initialTimeDisplay}</div>
-                
+                <div class="task-timer" title="Clic para editar el tiempo manualmente">${initialTimeDisplay}</div>                
                 <div class="task-actions">
                     <button class="btn-action btn-copy" title="Copiar fila para Excel">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
@@ -284,6 +290,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const timerDisplay = li.querySelector('.task-timer');
         const playBtn = li.querySelector('.btn-play');
+
+        const dragHandle = li.querySelector('.drag-handle');
+
+
         if (data.isRunning) playBtn.classList.add('active');
 
         const checkBtn = li.querySelector('.btn-check');
@@ -294,6 +304,36 @@ document.addEventListener('DOMContentLoaded', function() {
         const textarea = li.querySelector('.log-textarea');
 
         let timerInterval = null;
+
+
+
+        // SEGURIDAD: Solo permitimos arrastrar si agarras el icono
+        dragHandle.addEventListener('mousedown', () => {
+            li.setAttribute('draggable', 'true'); // Activamos el arrastre en la tarjeta completa
+        });
+
+        dragHandle.addEventListener('mouseup', () => {
+            li.setAttribute('draggable', 'false'); // Desactivamos al soltar
+        });
+
+        // Eventos nativos de arrastre sobre la tarjeta
+        li.addEventListener('dragstart', (e) => {
+            li.classList.add('dragging'); // Aplicamos estilo visual (transparencia)
+            
+            // Ayuda para algunos navegadores
+            e.dataTransfer.effectAllowed = 'move'; 
+        });
+
+        li.addEventListener('dragend', () => {
+            li.classList.remove('dragging'); // Quitamos estilo visual
+            li.setAttribute('draggable', 'false'); // Forzamos desactivación del arrastre
+            
+            // !!! AQUÍ ESTÁ LO IMPORTANTE !!!
+            // Al soltar, recalculamos los tiempos invisibles según el nuevo orden visual
+            updateOrderFromDOM(); 
+        });
+
+
 
         function startVisualTimer() {
             clearInterval(timerInterval);
@@ -309,6 +349,52 @@ document.addEventListener('DOMContentLoaded', function() {
         if (data.isRunning) {
             startVisualTimer();
         }
+
+        // --- NUEVO: EVENTO PARA EDITAR EL TIEMPO MANUALMENTE ---
+        timerDisplay.addEventListener('click', () => {
+            // 1. Calculamos el tiempo exacto en este instante
+            let currentTotal = li.taskData.accumulatedSeconds;
+            if (li.taskData.isRunning) {
+                 const now = Date.now();
+                 currentTotal += Math.floor((now - li.taskData.lastStartTime) / 1000);
+            }
+            
+            const currentFormatted = formatTime(currentTotal);
+            
+            // 2. Pedimos al usuario el nuevo tiempo mediante un prompt nativo
+            const newTimeStr = prompt("Edita el tiempo (Formato HH:MM:SS):", currentFormatted);
+            
+            // 3. Validamos si el usuario ingresó algo y no le dio a "Cancelar"
+            if (newTimeStr && newTimeStr !== currentFormatted) {
+                const parts = newTimeStr.split(':');
+                
+                // Validamos que tenga exactamente 3 partes (horas, minutos, segundos) y sean números
+                if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+                    const h = parseInt(parts[0], 10);
+                    const m = parseInt(parts[1], 10);
+                    const s = parseInt(parts[2], 10);
+                    
+                    // Convertimos todo a segundos
+                    const newTotalSeconds = (h * 3600) + (m * 60) + s;
+                    
+                    // 4. Actualizamos el "cerebro" de la tarea
+                    li.taskData.accumulatedSeconds = newTotalSeconds;
+                    
+                    // Si el cronómetro estaba corriendo mientras editabas, reseteamos 
+                    // el punto de inicio para que empiece a contar desde tu nuevo tiempo
+                    if (li.taskData.isRunning) {
+                        li.taskData.lastStartTime = Date.now();
+                    }
+                    
+                    // 5. Actualizamos lo visual y guardamos
+                    timerDisplay.textContent = formatTime(newTotalSeconds);
+                    saveTasksToStorage();
+                    updateTotalTimeUI(); // Actualiza el banner general de arriba
+                } else {
+                    alert("⚠️ Formato inválido. Por favor, utiliza el formato HH:MM:SS (ejemplo: 01:30:00).");
+                }
+            }
+        });
 
         copyBtn.addEventListener('click', () => {
             const today = new Date().toLocaleDateString();
@@ -571,6 +657,58 @@ if (deleteAllBtn) {
                 if (list) list.innerHTML = '';
                 
                 // 3. Actualizamos los contadores visuales (el tiempo volverá a 00:00:00 y aparecerá el cartel de vacío)
+                
+                // --- LÓGICA GLOBAL DE DRAG & DROP SOBRE LA LISTA ---
+    const taskListContainer = document.getElementById('task-list');
+
+    taskListContainer.addEventListener('dragover', e => {
+        e.preventDefault(); // Necesario para permitir que se "suelte" el elemento
+        const afterElement = getDragAfterElement(taskListContainer, e.clientY);
+        const draggable = document.querySelector('.dragging');
+        
+        if (draggable) {
+            if (afterElement == null) {
+                taskListContainer.appendChild(draggable);
+            } else {
+                taskListContainer.insertBefore(draggable, afterElement);
+            }
+        }
+    });
+
+    // Función matemática para saber entre qué dos tarjetas estás flotando
+    function getDragAfterElement(container, y) {
+        // Ignoramos la tarjeta que se está arrastrando
+        const draggableElements = [...container.querySelectorAll('.task-item:not(.dragging)')];
+
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    // Truco maestro: Resincronizar los tiempos invisibles según el nuevo orden visual
+    function updateOrderFromDOM() {
+        const tasks = Array.from(taskListContainer.querySelectorAll('.task-item'));
+        let baseTime = Date.now(); 
+        
+        tasks.forEach((task, index) => {
+            if(task.taskData) {
+                // Le damos a cada tarjeta un timestamp secuencial falso. 
+                // La de más arriba tendrá el más reciente, la de abajo tendrá 1 segundo menos, etc.
+                // Así nuestra función original de ordenar las respetará perfectamente.
+                task.taskData.lastInteraction = baseTime - (index * 1000);
+            }
+        });
+        
+        saveTasksToStorage();
+        sortTasksList(); // Re-dibuja los separadores de fecha basándose en tu nuevo orden manual
+    }
+
                 updateTotalTimeUI();
                 checkEmptyState();
             }
@@ -579,5 +717,70 @@ if (deleteAllBtn) {
 
 updateTotalTimeUI();
 
+// =========================================================
+    // --- MOTOR GLOBAL DE DRAG & DROP (Al final del archivo) ---
+    // =========================================================
+    const taskListContainer = document.getElementById('task-list');
+
+    // 1. Detectar cuándo una tarjeta se mueve SOBRE la lista
+    taskListContainer.addEventListener('dragover', e => {
+        e.preventDefault(); // OBLIGATORIO: Permite que se pueda "soltar"
+        e.dataTransfer.dropEffect = 'move';
+
+        const draggable = document.querySelector('.dragging'); // La tarjeta que movemos
+        if (!draggable) return;
+
+        // Calculamos qué tarjeta está inmediatamente después de la posición de nuestro ratón
+        const afterElement = getDragAfterElement(taskListContainer, e.clientY);
+        
+        if (afterElement == null) {
+            // Si no hay ninguna tarjeta después, la ponemos al final
+            taskListContainer.appendChild(draggable);
+        } else {
+            // Si encontramos una tarjeta, insertamos la nuestra JUSTO ANTES
+            taskListContainer.insertBefore(draggable, afterElement);
+        }
+    });
+
+    // 2. Función matemática para calcular el elemento más cercano debajo del ratón
+    function getDragAfterElement(container, y) {
+        // Obtenemos todas las tareas EXCEPTO la que estamos arrastrando
+        const draggableElements = [...container.querySelectorAll('.task-item:not(.dragging)')];
+
+        return draggableElements.reduce((closest, child) => {
+            // Obtenemos la posición y tamaño de la tarjeta
+            const box = child.getBoundingClientRect();
+            // Calculamos el centro vertical de la tarjeta
+            const offset = y - box.top - box.height / 2;
+
+            // Si el ratón está por encima del centro y es el más cercano encontrado hasta ahora
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element; // Empezamos con el valor más bajo posible
+    }
+
+    // 3. TRUCO MAESTRO: Resincronizar timestamps según el nuevo orden visual
+    function updateOrderFromDOM() {
+        const tasks = Array.from(taskListContainer.querySelectorAll('.task-item'));
+        let baseTime = Date.now(); // Tiempo actual como referencia máxima
+        
+        tasks.forEach((task, index) => {
+            if(task.taskData) {
+                // Modificamos matemáticamente la propiedad invisible que usamos para ordenar.
+                // Tarea 1 (arriba): Ahora mismo.
+                // Tarea 2: Ahora mismo - 1 segundo.
+                // Tarea 3: Ahora mismo - 2 segundos... etc.
+                // Así nuestra función original de ordenar respetará tu orden manual para siempre.
+                task.taskData.lastInteraction = baseTime - (index * 1000);
+            }
+        });
+        
+        saveTasksToStorage(); // Guardamos el nuevo "cerebro" recalculado
+        sortTasksList(); // Re-dibujamos separadores de fecha basándonos en tu nuevo orden manual
+    }
+    
 });
 

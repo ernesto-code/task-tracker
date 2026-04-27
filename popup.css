@@ -663,3 +663,90 @@ input::placeholder {
     color: white;
     border-color: #ef4444;
 }
+/* --- ESTILO PARA EDITAR TIEMPO MANUALMENTE --- */
+.task-timer {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.task-timer:hover {
+    color: #60a5fa; /* Se pinta de azul claro al pasar el mouse */
+    text-shadow: 0 0 8px rgba(96, 165, 250, 0.4); /* Leve resplandor */
+}
+/* --- ARRASTRAR Y SOLTAR (DRAG & DROP) --- */
+.task-item {
+    position: relative;
+    padding-top: 28px; /* Abre un espacio arriba para que el icono no pise los textos */
+}
+
+.drag-handle {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #475569;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 20px;
+    transition: color 0.2s;
+}
+
+.drag-handle:hover {
+    color: #94a3b8;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+/* Efecto visual de la tarjeta mientras la estás moviendo */
+.task-item.dragging {
+    opacity: 0.4;
+    border: 1px dashed #8b5cf6;
+    transform: scale(0.98);
+}
+
+/* --- ARRASTRAR Y SOLTAR (DRAG & DROP) --- */
+
+/* 1. Hacemos espacio arriba para el icono */
+.task-item {
+    position: relative;
+    padding-top: 28px !important; /* Espacio para que el grip no pise los textos */
+    transition: transform 0.2s ease, box-shadow 0.2s ease; /* Animación suave */
+}
+
+/* 2. Estilo del icono de agarre (6 puntitos) */
+.drag-handle {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #475569;
+    cursor: grab; /* Mano abierta indicando que se puede agarrar */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px; /* Área de clic cómoda */
+    height: 20px;
+    z-index: 10;
+}
+
+.drag-handle:hover {
+    color: #94a3b8;
+}
+
+.drag-handle:active {
+    cursor: grabbing; /* Mano cerrada al arrastrar */
+}
+
+/* 3. Efecto visual de la tarjeta MIENTRAS se arrastra */
+.task-item.dragging {
+    opacity: 0.5; /* Transparente */
+    border: 2px dashed #8b5cf6; /* Borde violeta punteado */
+    transform: scale(0.95); /* Se encoge un poquito */
+    box-shadow: 0 10px 20px rgba(0,0,0,0.4); /* Sombra para dar efecto de "vuelo" */
+    z-index: 100;
+}
