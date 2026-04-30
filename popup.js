@@ -1,25 +1,30 @@
 document.addEventListener('DOMContentLoaded', function() {
     
     // ---------------------------------------------------------
-    // 1. DATA: DEFINICIÓN DE TAREAS (Predefinidas)
+    // 1. DATA: DEFINICIÓN DE TAREAS (Actualizado)
     // ---------------------------------------------------------
     const predefinedTasks = [
-        { id: "listing", name: "Listing", description: "Listado de issues", logTemplate: "# bug listed: \nDescription:" },
-        { id: "issues_reporting", name: "Issues reporting", description: "Reporte de issues, redaccion, etc", logTemplate: "# of bugs reported: \n# of bugs updated: \nDescription:" },
-        { id: "triage", name: "Triage", description: "Triage", logTemplate: "# of bugs triaged: \nDescription:" },
-        { id: "ir_response", name: "IR - Response", description: "Responder issues en IR", logTemplate: "Reply to issues: [qty]" },
-        { id: "deliverable_request", name: "Deliverable reports - Request", description: "Solicitud de reportes de cierre de auditoria", logTemplate: "Reports requested" },
-        { id: "deliverable_review", name: "Deliverable reports - Review", description: "Revision de los reportes de cierre de auditoria", logTemplate: "Reports Review" },
-        { id: "bfv", name: "BFV", description: "Bug Fix verification - Test cases execution", logTemplate: "Cycle ID: \n# of BFVs completed:" },
-        { id: "listing_review", name: "Listing review", description: "Revisar el listing", logTemplate: "Listed issues reviewed:" },
-        { id: "reported_issues_update", name: "Reported issues update", description: "Screenshots adding, ajuste de redaccion.", logTemplate: "Reported issues updated:" },
-        { id: "reported_issues_review", name: "Reported issues review", description: "Double checking issues...", logTemplate: "Reported issues reviewed:" },
-        { id: "videos_recording", name: "Videos recording", description: "Grabacion de videos", logTemplate: "Videos recorded:" },
-        { id: "client_questions", name: "Respond to client questions", description: "Respuestas al cliente", logTemplate: "Respond to client questions" },
-        { id: "custom_report", name: "Custom Report (Starbucks)", description: "Reporte de starbucks", logTemplate: "Custom reports creation" },
-        { id: "pdf_remediation", name: "PDF Remediation", description: "Fixes para PDF", logTemplate: "Documents / Pages fixed :" },
-        { id: "mentoring", name: "Mentoring", description: "Mentoring de algun miembro", logTemplate: "Time spend mentoring [tester]" },
-        { id: "vpat", name: "VPAT", description: "Creación o revisión de VPAT", logTemplate: "VPAT Creation/Review/Update" }
+        { id: "env_setup", name: "Environment setup / reading Overview", category: "AC Tasks: AC Auditor: Other", logTemplate: "Test environment setup/reading Overview" },
+        { id: "listing", name: "Listing", category: "AC Tasks: AC Expert: Listing Issues", logTemplate: "# of unique bugs listed: [number]\n# of other occurrences: [number]\n# of bugs validated: [number]\nDescription: [leave empty if none]" },
+        { id: "issues_reporting", name: "Issues reporting", category: "AC Tasks: AC Auditor: A11y Testing", logTemplate: "# of unique bugs reported: [number]\n# of other occurrences: [number]\n# of bugs updated: [number]\nDescription: [leave empty if none]" },
+        { id: "triage", name: "Triage", category: "AC Tasks: AC Expert: Triage", logTemplate: "# of bugs triaged: [number]\n# of bugs info requested: [number]\n# of bugs triaged after info requests: [number]\nDescription: [leave empty if none]" },
+        { id: "ir_response", name: "IR - Response", category: "General", logTemplate: "Reply to issues: [qty]" },
+        { id: "bfv", name: "BFV", category: "General", logTemplate: "Cycle ID: \n# of BFVs completed: " },
+        { id: "deliverable_request", name: "Deliverable reports - Request", category: "A11y Reports", logTemplate: "Reports requested" },
+        { id: "deliverable_review", name: "Deliverable reports - Review", category: "A11y Reports", logTemplate: "Reports Review" },
+        { id: "custom_report", name: "Custom Report (Starbucks)", category: "General", logTemplate: "Custom reports creation" },
+        { id: "int_ext_comm", name: "Internal External Communication", category: "AC Tasks: AC Expert: Other", logTemplate: "Chat, Emails and Meetings with the customer" },
+        { id: "client_questions", name: "Respond to client questions", category: "General", logTemplate: "Respond to client questions" },
+        { id: "pdf_remediation", name: "PDF Remediation", category: "General", logTemplate: "Documents / Pages fixed :" },
+        { id: "mentoring", name: "Mentoring", category: "General", logTemplate: "Time spend mentoring [tester]" },
+        { id: "vpat", name: "VPAT", category: "General", logTemplate: "VPAT Creation/Review/Update" },
+        { id: "training_sessions", name: "Training Sessions", category: "General", logTemplate: "Training program including sessions with the client" },
+        { id: "reported_issues_update", name: "Reported issues update", category: "General", logTemplate: "Reported issues updated:" },
+        { id: "reported_issues_review", name: "Reported issues review", category: "General", logTemplate: "Reported issues reviewed:" },
+        { id: "videos_recording", name: "Videos recording", category: "General", logTemplate: "Videos recorded:" },
+        { id: "listing_review", name: "Listing review", category: "General", logTemplate: "Review of the listed issues (Validation)" },
+        { id: "daily_meeting", name: "Daily meeting", category: "General", logTemplate: "Daily meeting" },
+        { id: "estimation_task", name: "Estimation Task", category: "General", logTemplate: "Scoping projects" }
     ];
 
     let currentSelectedTask = null;
@@ -28,6 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 2. REFERENCIAS Y TABS (¡LÓGICA ACTUALIZADA!)
     // ---------------------------------------------------------
     const taskInput = document.getElementById('task-input');
+    const taskOptions = document.getElementById('task-options'); // <-- NUEVO-options
     const cycleInput = document.getElementById('cycle-input');
     const suggestionsList = document.getElementById('task-suggestions');
     const addBtn = document.getElementById('add-task-btn');
@@ -132,45 +138,17 @@ document.addEventListener('DOMContentLoaded', function() {
         
     }
 
+
     // ---------------------------------------------------------
-    // 4. DROPDOWN (AUTOCOMPLETADO)
+    // 4. LLENAR COMBOBOX NATIVO (DATALIST)
     // ---------------------------------------------------------
-    function renderSuggestions(filterText = '') {
-        suggestionsList.innerHTML = '';
-        const lowerFilter = filterText.toLowerCase();
-        const filtered = predefinedTasks.filter(task => task.name.toLowerCase().includes(lowerFilter));
-
-        if (filtered.length === 0) {
-            suggestionsList.style.display = 'none';
-            return;
-        }
-
-        filtered.forEach(task => {
-            const li = document.createElement('li');
-            li.textContent = task.name;
-            li.setAttribute('title', task.description);
-            li.addEventListener('click', () => {
-                taskInput.value = task.name;
-                currentSelectedTask = task;
-                suggestionsList.style.display = 'none';
-            });
-            suggestionsList.appendChild(li);
-        });
-        suggestionsList.style.display = 'block';
-    }
-
-    taskInput.addEventListener('input', (e) => {
-        renderSuggestions(e.target.value);
-        currentSelectedTask = predefinedTasks.find(t => t.name === e.target.value) || null;
+    predefinedTasks.forEach(task => {
+        const option = document.createElement('option');
+        option.value = task.name;
+        if (taskOptions) taskOptions.appendChild(option);
     });
 
-    taskInput.addEventListener('focus', () => renderSuggestions(taskInput.value));
     
-    document.addEventListener('click', (e) => {
-        if (!taskInput.contains(e.target) && !suggestionsList.contains(e.target)) {
-            suggestionsList.style.display = 'none';
-        }
-    });
 
     // ---------------------------------------------------------
     // 5. AGREGAR NUEVA TAREA
@@ -183,20 +161,23 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log("Tipo seleccionado al agregar:", typeText);
 
         if (taskText !== "") {
-            let templateToUse = "";
-            if (currentSelectedTask && currentSelectedTask.name === taskText) {
-                templateToUse = currentSelectedTask.logTemplate;
-            } else {
-                const found = predefinedTasks.find(t => t.name === taskText);
-                if (found) templateToUse = found.logTemplate;
-            }
+            // Buscamos si la tarea existe
+            const foundTask = predefinedTasks.find(t => t.name === taskText);
+            const templateToUse = foundTask ? foundTask.logTemplate : "";
+            
+            // GUARDAMOS LA CATEGORÍA PARA EL EXCEL (Columna F)
+            const categoryToUse = foundTask ? foundTask.category : ""; 
+
+            // CORRECCIÓN: El "Tipo" vuelve a ser estrictamente lo que elijas en el Dropdown (UTest, etc)
+            const typeText = typeInput ? typeInput.value : "UTest";
 
             const newTaskData = {
                 id: Date.now(),
-                type: typeText, 
+                type: typeText,        // Para la etiqueta visual (UTest)
+                category: categoryToUse, // Para la Columna F del Excel
                 text: taskText,
                 cycle: cycleText,
-                date: new Date().toLocaleDateString(), // <-- GUARDA LA FECHA ACTUAL (Ej: "10/02/2026")
+                date: new Date().toLocaleDateString(),
                 template: templateToUse,
                 logContent: templateToUse,
                 accumulatedSeconds: 0,
@@ -407,17 +388,19 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             const timeString = formatTime(finalSeconds);
 
-            // 2. Limpiar descripción
+            // Limpiar descripción
             const cleanDescription = (li.taskData.logContent || "").replace(/(\r\n|\n|\r)/gm, " | ");
 
-            // 3. Crear el texto con TABULADORES
-            // 3. Unir el Tipo de Tarea con el Ciclo
-            const typeValue = li.taskData.type || "UTest"; // Por si hay tareas viejas guardadas sin tipo
+            // Combinar Tipo y Ciclo
+            const typeValue = li.taskData.type || "UTest";
             const combinedCycle = `${typeValue} - ${li.taskData.cycle}`;
+            
+            // Capturar la categoría (Si no tiene, queda en blanco)
+            const taskCategory = li.taskData.category || "";
 
-            // 4. Crear el texto con TABULADORES
-            // Orden: Fecha | (Tipo - Ciclo) | Tarea | Tiempo | Descripción
-            const clipboardText = `${today}\t${combinedCycle}\t${li.taskData.text}\t${timeString}\t${cleanDescription}`;
+            // 4. Crear el texto con TABULADORES (Añadimos la Categoría al final)
+            // Orden: Fecha | (Tipo - Ciclo) | Tarea | Tiempo | Descripción | Categoría
+            const clipboardText = `${today}\t${combinedCycle}\t${li.taskData.text}\t${timeString}\t${cleanDescription}\t${taskCategory}`;
 
             // 4. Copiar y cambiar icono visualmente
             navigator.clipboard.writeText(clipboardText).then(() => {
@@ -605,9 +588,12 @@ function updateTotalTimeUI() {
                     // Combinar Tipo y Ciclo
                     const typeValue = li.taskData.type || "UTest";
                     const combinedCycle = `${typeValue} - ${li.taskData.cycle}`;
+                    
+                    // Capturar categoría
+                    const taskCategory = li.taskData.category || "";
 
-                    // Fila: Fecha | (Tipo - Ciclo) | Tarea | Duración | Descripción
-                    const rowText = `${taskDate}\t${combinedCycle}\t${li.taskData.text}\t${timeString}\t${cleanDescription}`;
+                    // Fila: Fecha | (Tipo - Ciclo) | Tarea | Duración | Descripción | Categoría
+                    const rowText = `${taskDate}\t${combinedCycle}\t${li.taskData.text}\t${timeString}\t${cleanDescription}\t${taskCategory}`;
                     
                     allTasksText.push(rowText);
                 }
